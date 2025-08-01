@@ -5,3 +5,6 @@
 .bedrock_agentcore.yaml
 .dockerignore
 Dockerfile
+
+# Streamlit
+__pycache__
