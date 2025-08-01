@@ -1,6 +1,6 @@
 # 必要なライブラリをインポート
-from strands import Agent, tool
 from dotenv import load_dotenv
+from strands import Agent, tool
 
 # .envファイルから環境変数を読み込む
 load_dotenv()
