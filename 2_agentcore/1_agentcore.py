@@ -9,6 +9,8 @@ load_dotenv()
 # Strandsでエージェントを作成
 agent = Agent("us.anthropic.claude-3-7-sonnet-20250219-v1:0")
 
+# ---------- 以下、追加コード--------------
+
 # AgentCoreのサーバーを作成
 app = BedrockAgentCoreApp()
 
@@ -16,13 +18,11 @@ app = BedrockAgentCoreApp()
 @app.entrypoint
 def invoke_agent(payload, context):
 
-    # クライアントから飛んできたプロンプトを取得
+    # リクエストのペイロード（中身）からプロンプトを取得
     prompt = payload.get("prompt")
     
     # エージェントを呼び出してレスポンスを返却
-    return {
-        "result": agent(prompt).message
-    }
+    return {"result": agent(prompt).message}
 
 # AgentCoreサーバーを起動
 app.run()
