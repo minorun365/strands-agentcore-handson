@@ -1,1 +1,7 @@
 .env
+.claude
+
+# AgentCore
+.bedrock_agentcore.yaml
+.dockerignore
+Dockerfile
