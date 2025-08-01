@@ -15,9 +15,8 @@ mcp = MCPClient(lambda: stdio_client(
     )
 ))
 
-# エージェントを呼び出し
+# MCPクライアントを起動しながら、エージェント作成＆呼び出し
 with mcp:
-    # エージェントを作成
     agent = Agent(
         model="us.anthropic.claude-3-7-sonnet-20250219-v1:0",
         tools=mcp.list_tools_sync()
