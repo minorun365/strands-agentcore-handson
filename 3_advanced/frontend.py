@@ -7,9 +7,6 @@ load_dotenv()
 st.title("エージェント構築の家庭教師")
 st.write("StrandsやAgentCoreのことは何でも聞いてね！")
 
-if arn := st.text_input("👇 AgentCoreランタイムのARNを入力", key="arn"):
-    os.environ['AGENT_RUNTIME_ARN'] = arn
-
 if 'messages' not in st.session_state:
     st.session_state.messages = []
 
