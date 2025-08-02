@@ -1,29 +1,35 @@
+# 必要なライブラリをインポート
+from dotenv import load_dotenv
 import os, asyncio, boto3, json, uuid
 import streamlit as st
-from dotenv import load_dotenv
 
+# .envファイルから環境変数をロード
 load_dotenv()
 
+# タイトルを描画
 st.title("Strands on AgentCore")
 st.write("何でも聞いてね！")
 
-if arn := st.text_input("👇 AgentCoreランタイムのARNを入力", key="arn"):
-    os.environ['AGENT_RUNTIME_ARN'] = arn
-
-agent_core = boto3.client('bedrock-agentcore')
-
+# チャットボックスを描画
 if prompt := st.chat_input("メッセージを入力してね"):
+
+    # ユーザーのプロンプトを表示
     with st.chat_message("user"):
         st.markdown(prompt)
 
+    # エージェントの回答を表示
     with st.chat_message("assistant"):
+
+        # AgentCoreランタイムを呼び出し
         with st.spinner("考え中…"):
-            response = agent_core.invoke_agent_runtime(
+            agentcore = boto3.client('bedrock-agentcore')
+            response = agentcore.invoke_agent_runtime(
                 agentRuntimeArn=os.getenv("AGENT_RUNTIME_ARN"),
                 payload=json.dumps({"prompt": prompt}),
                 qualifier="DEFAULT"
             )
-            response_body = response["response"].read()
-            response_data = json.loads(response_body.decode('utf-8'))
-        
+
+        # 結果のテキストを取り出して表示
+        response_body = response["response"].read()
+        response_data = json.loads(response_body.decode('utf-8'))
         st.write(response_data["result"]["content"][0]["text"])

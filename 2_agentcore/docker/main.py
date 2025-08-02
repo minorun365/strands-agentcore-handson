@@ -3,7 +3,7 @@ from dotenv import load_dotenv
 from strands import Agent
 from bedrock_agentcore.runtime import BedrockAgentCoreApp # 追加
 
-# .envファイルから環境変数を読み込む
+# .envファイルから環境変数をロード
 load_dotenv()
 
 # Strandsでエージェントを作成
