@@ -4,7 +4,7 @@ import os, asyncio, boto3, json, uuid
 import streamlit as st
 
 # .envファイルから環境変数をロード
-load_dotenv()
+load_dotenv(override=True)
 
 # タイトルを描画
 st.title("Strands on AgentCore")
@@ -25,8 +25,7 @@ if prompt := st.chat_input("メッセージを入力してね"):
             agentcore = boto3.client('bedrock-agentcore')
             response = agentcore.invoke_agent_runtime(
                 agentRuntimeArn=os.getenv("AGENT_RUNTIME_ARN"),
-                payload=json.dumps({"prompt": prompt}),
-                qualifier="DEFAULT"
+                payload=json.dumps({"prompt": prompt})
             )
 
         # 結果のテキストを取り出して表示
