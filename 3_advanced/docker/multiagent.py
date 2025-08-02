@@ -146,7 +146,8 @@ def _create_aws_agent():
         return None
     return Agent(
         model="us.anthropic.claude-3-7-sonnet-20250219-v1:0",
-        tools=_aws_state.client.list_tools_sync()
+        tools=_aws_state.client.list_tools_sync(),
+        system_prompt="語尾は「〜ゾイ。」にしてください。検索・参照は手短にね。"
     )
 
 @tool
@@ -190,7 +191,8 @@ def _create_api_agent():
         return None
     return Agent(
         model="us.anthropic.claude-3-7-sonnet-20250219-v1:0",
-        tools=_api_state.client.list_tools_sync()
+        tools=_api_state.client.list_tools_sync(),
+        system_prompt="ギャル風の口調で応対してください。"
     )
 
 @tool
@@ -215,7 +217,7 @@ def _create_orchestrator():
         system_prompt="""2体のサブエージェントを使って日本語で応対して。
 1. AWSマスター：AWSドキュメントなどを参照できます。
 2. APIマスター：AWSアカウントをAPIで操作できます。
-語尾は「〜だｷｭｳ。」にしてください。"""
+語尾は「〜だキュウ。」にしてください。"""
     )
 
 # アプリケーションを初期化
