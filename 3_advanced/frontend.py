@@ -1,88 +1,183 @@
-import os, asyncio, boto3, json, uuid
-import streamlit as st
 from dotenv import load_dotenv
+import os, json, uuid, asyncio, boto3
+import streamlit as st
 
-load_dotenv()
+load_dotenv(override=True)
 
-st.title("エージェント構築の家庭教師")
-st.write("StrandsやAgentCoreのことは何でも聞いてね！")
+# =============================================================================
+# ストリーミング処理
+# =============================================================================
 
-if 'messages' not in st.session_state:
-    st.session_state.messages = []
+def create_state():
+    """新しい状態を作成"""
+    return {
+        "containers": [],
+        "current_status": None,
+        "current_text": None,
+        "final_response": ""
+    }
 
-for msg in st.session_state.messages:
-    with st.chat_message(msg["role"]):
-        st.markdown(msg["content"])
-
-agent_core = boto3.client('bedrock-agentcore')
-
-def update_status(container, state, message, stage="processing"):
-    if state["current_status"]:
-        state["current_status"][0].status(state["current_status"][1], state="complete")
+def think(container, state):
+    """思考開始を表示"""
     with container:
-        new_status = st.empty()
-        new_status.status(message, state="complete" if stage == "complete" else "running")
-    state["containers"].append((new_status, message))
-    state["current_status"] = (new_status, message)
-    state["current_text"] = None
+        thinking_status = st.empty()
+        thinking_status.status("思考中", state="running")
+    state["containers"].append((thinking_status, "思考中"))
 
-def handle_stream(data, container, state):
-    if not isinstance(data, dict):
+def change_status(event, container, state):
+    """サブエージェントのステータスを更新"""
+    progress_info = event["subAgentProgress"]
+    message = progress_info.get("message")
+    stage = progress_info.get("stage", "processing")
+    
+    # 前のステータスを完了状態に
+    if state["current_status"]:
+        status, old_message = state["current_status"]
+        status.status(old_message, state="complete")
+    
+    # 新しいステータス表示
+    with container:
+        new_status_box = st.empty()
+        if stage == "complete":
+            display_state = "complete"
+        else:
+            display_state = "running"
+        new_status_box.status(message, state=display_state)
+    
+    status_info = (new_status_box, message)
+    state["containers"].append(status_info)
+    state["current_status"] = status_info
+    state["current_text"] = None
+    state["final_response"] = ""
+
+def stream_text(event, container, state):
+    """テキストをストリーミング表示"""
+    delta = event["contentBlockDelta"]["delta"]
+    if "text" not in delta:
         return
     
-    event = data.get("event", {})
-    if progress := event.get("subAgentProgress"):
-        update_status(container, state, progress.get("message"), progress.get("stage"))
-    elif delta := event.get("contentBlockDelta", {}).get("delta", {}).get("text"):
-        if state["current_text"] is None:
-            if state["containers"] and "思考中" in state["containers"][0][1]:
-                state["containers"][0][0].status("思考中", state="complete")
-            if state["current_status"]:
-                state["current_status"][0].status(state["current_status"][1], state="complete")
-            with container:
-                state["current_text"] = st.empty()
-        state["final_response"] += delta
-        state["current_text"].markdown(state["final_response"])
-    elif error := data.get("error"):
-        st.error(f"AgentCoreエラー: {error}")
-        state["final_response"] = f"エラー: {error}"
-
-async def invoke_agent(prompt, container):
-    state = {"containers": [], "current_status": None, "current_text": None, "final_response": ""}
-    session_id = f"session_{uuid.uuid4()}"
+    # テキスト出力開始時にステータスを完了に
+    if state["current_text"] is None:
+        if state["containers"]:
+            status, first_message = state["containers"][0]
+            if "思考中" in first_message:
+                status.status("思考中", state="complete")
+        if state["current_status"]:
+            status, message = state["current_status"]
+            status.status(message, state="complete")
     
-    with container:
-        thinking = st.empty()
-        thinking.status("思考中", state="running")
-    state["containers"].append((thinking, "思考中"))
+    # テキスト処理
+    text = delta["text"]
+    state["final_response"] += text
+    
+    # テキストコンテナ更新
+    if state["current_text"] is None:
+        with container:
+            state["current_text"] = st.empty()
+    if state["current_text"]:
+        response = state["final_response"]
+        state["current_text"].markdown(response)
+
+def finish(state):
+    """表示の終了処理"""
+    if state["current_text"]:
+        response = state["final_response"]
+        state["current_text"].markdown(response)
+    for status, message in state["containers"]:
+        status.status(message, state="complete")
+
+# =============================================================================
+# サブエージェント呼び出し
+# =============================================================================
+
+def extract_stream(data, container, state):
+    """ストリーミングから内容を抽出"""
+    if not isinstance(data, dict):
+        return
+
+    event = data.get("event", {})    
+    if "subAgentProgress" in event:
+        change_status(event, container, state)
+    elif "contentBlockDelta" in event:
+        stream_text(event, container, state)
+    elif "error" in data:
+        error_msg = data.get("error", "Unknown error")
+        error_type = data.get("error_type", "Unknown")
+        st.error(f"AgentCoreエラー: {error_msg}")
+        state["final_response"] = f"エラー: {error_msg}"
+
+async def invoke_agent(prompt, container, agent_core):
+    """エージェントを呼び出し"""
+    state = create_state()
+    session_id = f"session_{str(uuid.uuid4())}"
+    think(container, state)
+    
+    payload = json.dumps({
+        "input": {"prompt": prompt, "session_id": session_id}
+    }).encode()
     
     try:
-        response = agent_core.invoke_agent_runtime(
+        agent_response = agent_core.invoke_agent_runtime(
             agentRuntimeArn=os.getenv("AGENT_RUNTIME_ARN"),
             runtimeSessionId=session_id,
-            payload=json.dumps({"input": {"prompt": prompt, "session_id": session_id}}).encode(),
+            payload=payload,
             qualifier="DEFAULT"
         )
+        for line in agent_response["response"].iter_lines():
+            decoded = line.decode("utf-8")
+            if not line or not decoded.startswith("data: "):
+                continue
+            try:
+                data = json.loads(decoded[6:])
+                extract_stream(data, container, state)
+            except json.JSONDecodeError:
+                continue
         
-        for line in response["response"].iter_lines():
-            if line and (decoded := line.decode("utf-8")).startswith("data: "):
-                try:
-                    handle_stream(json.loads(decoded[6:]), container, state)
-                except json.JSONDecodeError:
-                    pass
-        
-        for status, msg in state["containers"]:
-            status.status(msg, state="complete")
+        finish(state)
         return state["final_response"]
+    
     except Exception as e:
         st.error(f"エラーが発生しました: {e}")
         return ""
 
+# =============================================================================
+# メイン画面
+# =============================================================================
+
+# タイトル表示
+st.title("Unlimited アマQ")
+st.write("AWSドキュメントや、あなたのアカウントを調査し放題！")
+
+# セッションを初期化
+if 'messages' not in st.session_state:
+    st.session_state.messages = []
+
+# メッセージ履歴を表示
+for message in st.session_state.messages:
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
+
+# AgentCore APIクライアントを初期化
+agent_core = boto3.client('bedrock-agentcore')
+
+# ユーザー入力を表示
 if prompt := st.chat_input("メッセージを入力してね"):
     with st.chat_message("user"):
         st.markdown(prompt)
-    st.session_state.messages.append({"role": "user", "content": prompt})
+    st.session_state.messages.append(
+        {"role": "user", "content": prompt}
+    )
     
+    # エージェントの応答を表示
     with st.chat_message("assistant"):
-        if response := asyncio.run(invoke_agent(prompt, st.container())):
-            st.session_state.messages.append({"role": "assistant", "content": response})
+        container = st.container()
+        try:
+            response = asyncio.run(
+                invoke_agent(prompt, container, agent_core)
+            )
+            if response:
+                st.session_state.messages.append(
+                    {"role": "assistant", "content": response}
+                )
+        except Exception as e:
+            st.error(f"エラーが発生しました: {e}")
