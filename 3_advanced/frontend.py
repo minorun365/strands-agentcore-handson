@@ -145,7 +145,7 @@ async def invoke_agent(prompt, container, agent_core):
 # =============================================================================
 
 # タイトル表示
-st.title("Unlimited アマQ")
+st.title("アマQ Unlimited")
 st.write("AWSドキュメントや、あなたのアカウントを調査し放題！")
 
 # セッションを初期化
