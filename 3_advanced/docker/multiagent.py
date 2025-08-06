@@ -145,7 +145,7 @@ def _create_aws_agent():
     if not _aws_state.client:
         return None
     return Agent(
-        model="us.anthropic.claude-sonnet-4-20250514-v1:0",
+        model="us.anthropic.claude-3-7-sonnet-20250219-v1:0",
         tools=_aws_state.client.list_tools_sync(),
         system_prompt="語尾は「〜ゾイ。」にしてください。検索・参照は手短にね。"
     )
@@ -190,7 +190,7 @@ def _create_api_agent():
     if not _api_state.client:
         return None
     return Agent(
-        model="us.anthropic.claude-sonnet-4-20250514-v1:0",
+        model="us.anthropic.claude-3-7-sonnet-20250219-v1:0",
         tools=_api_state.client.list_tools_sync(),
         system_prompt="ギャル風の口調で応対してください。"
     )
@@ -212,7 +212,7 @@ async def api_master(query):
 def _create_orchestrator():
     """監督者エージェントを作成"""
     return Agent(
-        model="us.anthropic.claude-sonnet-4-20250514-v1:0",
+        model="us.anthropic.claude-3-7-sonnet-20250219-v1:0",
         tools=[aws_master, api_master],
         system_prompt="""2体のサブエージェントを使って日本語で応対して。
 1. AWSマスター：AWSドキュメントなどを参照できます。
