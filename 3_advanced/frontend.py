@@ -1,8 +1,10 @@
-from dotenv import load_dotenv
 import os, json, uuid, asyncio, boto3
 import streamlit as st
 
-load_dotenv(override=True)
+os.environ['AWS_ACCESS_KEY_ID'] = st.secrets['AWS_ACCESS_KEY_ID']
+os.environ['AWS_SECRET_ACCESS_KEY'] = st.secrets['AWS_SECRET_ACCESS_KEY']
+os.environ['AWS_DEFAULT_REGION'] = st.secrets['AWS_DEFAULT_REGION']
+os.environ['AGENT_RUNTIME_ARN'] = st.secrets['AGENT_RUNTIME_ARN']
 
 # =============================================================================
 # ストリーミング処理
