@@ -4,7 +4,7 @@ import os, asyncio, boto3, json, uuid
 import streamlit as st
 
 # .envファイルから環境変数をロード
-load_dotenv(override=True)
+# load_dotenv(override=True)
 
 # タイトルを描画
 st.title("Strands on AgentCore")
