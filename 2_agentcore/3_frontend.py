@@ -1,7 +1,7 @@
 # 必要なライブラリをインポート
-from dotenv import load_dotenv
 import os, boto3, json
 import streamlit as st
+from dotenv import load_dotenv
 
 # .envファイルから環境変数をロード
 load_dotenv(override=True)
@@ -17,26 +17,24 @@ st.write("Strands AgentsがMCPサーバーを使って情報収集します！")
 
 # チャットボックスを描画
 if prompt := st.chat_input("メッセージを入力してね"):
-
     # ユーザーのプロンプトを表示
     with st.chat_message("user"):
         st.markdown(prompt)
 
     # エージェントの回答を表示
     with st.chat_message("assistant"):
-
         # AgentCoreランタイムを呼び出し
         agentcore = boto3.client('bedrock-agentcore')
         payload = json.dumps({
             "prompt": prompt,
             "tavily_api_key": tavily_api_key
-        }).encode()
+        })
         response = agentcore.invoke_agent_runtime(
             agentRuntimeArn=agent_runtime_arn,
-            payload=payload
+            payload=payload.encode()
         )
 
-        # ストリーミング表示
+        # ストリーミングレスポンスを処理
         container = st.container()
         text_holder = container.empty()
         buffer = ""
@@ -46,10 +44,11 @@ if prompt := st.chat_input("メッセージを入力してね"):
             if line and line.decode("utf-8").startswith("data: "):
                 data = line.decode("utf-8")[6:]
 
-                # 文字列コンテンツは無視
+                # 文字列コンテンツの場合は無視
                 if data.startswith('"') or data.startswith("'"):
                     continue
 
+                # 読み込んだ行をJSONに変換
                 event = json.loads(data)
 
                 # ツール利用を検出
@@ -63,7 +62,7 @@ if prompt := st.chat_input("メッセージを入力してね"):
                         container.info("🔍 Tavily検索ツールを利用しています")
                         text_holder = container.empty()
 
-                # テキストを抽出して表示
+                # テキストコンテンツを検出
                 if "data" in event and isinstance(event["data"], str):
                     buffer += event["data"]
                     text_holder.markdown(buffer)
@@ -71,5 +70,5 @@ if prompt := st.chat_input("メッセージを入力してね"):
                     buffer += event["event"]["contentBlockDelta"]["delta"].get("text", "")
                     text_holder.markdown(buffer)
 
-        # 最終表示
+        # 最後に残ったテキストを表示
         text_holder.markdown(buffer)
